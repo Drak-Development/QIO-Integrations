@@ -1,0 +1,62 @@
+apply from: rootProject.file('gradle/mc-version.gradle')
+apply from: rootProject.file('gradle/mc-shared-sources.gradle')
+
+neoForge {
+    version = neo_version
+
+    if (parchment_mappings_version) {
+        parchment {
+            mappingsVersion = parchment_mappings_version
+            minecraftVersion = parchment_minecraft_version
+        }
+    }
+
+    runs {
+        client {
+            client()
+        }
+        server {
+            server()
+        }
+
+        configureEach {
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+
+    mods {
+        qiointegrations {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+var generateModMetadata = tasks.register('generateModMetadata', ProcessResources) {
+    var replaceProperties = [
+            version: project.version,
+            neoforge_javafml_version_range: neoforge_javafml_version_range,
+            neoforge_version_range: neoforge_version_range
+    ]
+    inputs.properties replaceProperties
+    expand replaceProperties
+    from 'src/main/templates'
+    into 'build/generated/sources/modMetadata'
+}
+
+sourceSets.main.resources.srcDir generateModMetadata
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'neoforge_javafml_version_range', neoforge_javafml_version_range
+    inputs.property 'neoforge_version_range', neoforge_version_range
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand(
+                version: project.version,
+                neoforge_javafml_version_range: neoforge_javafml_version_range,
+                neoforge_version_range: neoforge_version_range
+        )
+    }
+}
+
+apply from: rootProject.file('gradle/deploy-artifacts.gradle')

@@ -1,0 +1,44 @@
+apply from: rootProject.file('gradle/mc-ide-runs.gradle')
+
+java.toolchain.languageVersion = JavaLanguageVersion.of(java_version)
+
+minecraft {
+    mappings channel: 'official', version: minecraft_version
+
+    runs {
+        configureEach {
+            workingDir = sharedRunDirectory
+        }
+        client {
+        }
+    }
+}
+
+repositories {
+    minecraft.mavenizer(it)
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
+    maven {
+        name = 'MinecraftLibraries'
+        url = 'https://libraries.minecraft.net/'
+    }
+    mavenCentral()
+}
+
+dependencies {
+    implementation minecraft.dependency("net.minecraftforge:forge:${minecraft_version}-${forge_version}")
+}
+
+apply from: rootProject.file('gradle/mc-integration-mods.gradle')
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'loader_version_range', forge_loader_version_range
+    filesMatching('META-INF/mods.toml') {
+        expand version: project.version, loader_version_range: forge_loader_version_range
+    }
+}
+
+apply from: rootProject.file('gradle/deploy-artifacts.gradle')

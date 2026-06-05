@@ -1,0 +1,44 @@
+modLoader="javafml"
+loaderVersion="${neoforge_javafml_version_range}"
+license="All Rights Reserved"
+
+[[mods]]
+modId="qiointegrations"
+version="${version}"
+displayName="QIO Integrations"
+description="Connect Mekanism QIO to AE2, Refined Storage, and Tom's Simple Storage"
+authors="nitra"
+
+[[mixins]]
+config="qiointegrations.mixins.json"
+
+[[dependencies.qiointegrations]]
+modId="neoforge"
+type="required"
+versionRange="${neoforge_version_range}"
+ordering="NONE"
+side="BOTH"
+
+[[dependencies.qiointegrations]]
+modId="mekanism"
+type="optional"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.qiointegrations]]
+modId="ae2"
+type="optional"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.qiointegrations]]
+modId="refinedstorage"
+type="optional"
+ordering="AFTER"
+side="BOTH"
+
+[[dependencies.qiointegrations]]
+modId="toms_storage"
+type="optional"
+ordering="AFTER"
+side="BOTH"

@@ -1,0 +1,12 @@
+if (project.projectDir.absolutePath.contains('OneDrive')) {
+    def relPath = project.path.replace(':', File.separator)
+    if (relPath.startsWith(File.separator)) {
+        relPath = relPath.substring(1)
+    }
+
+    def localAppData = System.getenv('LOCALAPPDATA')
+    if (localAppData != null && !localAppData.isBlank()) {
+        def externalBuild = new File(new File(localAppData, 'QIO-Integrations-build'), relPath)
+        layout.buildDirectory.set(externalBuild)
+    }
+}

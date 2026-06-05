@@ -1,0 +1,80 @@
+apply from: rootProject.file('gradle/mc-ide-runs.gradle')
+apply from: rootProject.file('gradle/mc-integration-mods.gradle')
+
+def fabricSodiumVersion = versionProps.getProperty('fabric_sodium_version', '')
+def needsSodiumLwjglBypass = minecraft_version == '1.20.1' && !fabricSodiumVersion.isEmpty()
+
+loom {
+    runs {
+        client {
+            client()
+            configName = ideClientRunName()
+            appendProjectPathToConfigName = false
+            ideConfigGenerated = true
+            runDir = loomRunDir()
+            // Loom upgrades LWJGL for dev; Sodium 0.5.x on 1.20.1 expects 3.3.1 (see CaffeineMC/sodium#2561).
+            if (needsSodiumLwjglBypass) {
+                property 'sodium.checks.issue2561', 'false'
+            }
+        }
+        remove server
+    }
+
+    runConfigs.configureEach {
+        ideConfigGenerated = true
+        runDir = loomRunDir()
+        if (needsSodiumLwjglBypass) {
+            property 'sodium.checks.issue2561', 'false'
+        }
+    }
+}
+
+// Dev Launch Injector reads launch.cfg (not Gradle vmArgs). Loom does not emit custom properties there.
+tasks.named('generateDLIConfig').configure {
+    doLast {
+        if (!needsSodiumLwjglBypass) {
+            return
+        }
+        def launchCfg = layout.projectDirectory.file('.gradle/loom-cache/launch.cfg').asFile
+        if (!launchCfg.isFile()) {
+            return
+        }
+        def text = launchCfg.getText('UTF-8')
+        if (text.contains('sodium.checks.issue2561')) {
+            return
+        }
+        launchCfg.text = text.replaceFirst(
+                /(?m)^commonProperties\r?\n/,
+                "commonProperties\n\tsodium.checks.issue2561=false\n"
+        )
+    }
+}
+
+// Covers Gradle/IDE runs that invoke devlaunchinjector Main directly.
+tasks.withType(JavaExec).configureEach { task ->
+    def isGameRun = task.name in ['runClient', 'runServer']
+            || task.name.endsWith('.main()')
+            || task.name.contains('devlaunch')
+    if (!isGameRun || !needsSodiumLwjglBypass) {
+        return
+    }
+    dependsOn tasks.named('generateDLIConfig')
+    jvmArgs '-Dsodium.checks.issue2561=false'
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+    modImplementation "net.fabricmc.fabric-api:fabric-api:${fabric_api_version}"
+}
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'minecraft_version', minecraft_version
+    filesMatching('fabric.mod.json') {
+        expand version: project.version, minecraft_version: minecraft_version
+    }
+}
+
+apply from: rootProject.file('gradle/deploy-artifacts.gradle')

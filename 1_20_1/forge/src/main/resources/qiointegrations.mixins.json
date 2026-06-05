@@ -1,0 +1,11 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "gg.drak.qiointegrations.mixin",
+  "compatibilityLevel": "JAVA_17",
+  "refmap": "qiointegrations.refmap.json",
+  "mixins": [
+    "CapabilityTileEntityMixin",
+    "MultiItemHandlerMixin"
+  ]
+}

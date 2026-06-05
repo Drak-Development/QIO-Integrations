@@ -1,0 +1,55 @@
+apply from: rootProject.file('gradle/mc-version.gradle')
+apply from: rootProject.file('gradle/mc-shared-sources.gradle')
+apply from: rootProject.file('gradle/mc-integration-sources.gradle')
+apply from: rootProject.file('gradle/mc-ide-runs.gradle')
+
+ext.integrationModsCompile = true
+apply from: rootProject.file('gradle/mc-integration-mods.gradle')
+
+dependencies {
+    compileOnly 'org.jetbrains:annotations:26.0.2-1'
+}
+
+minecraft {
+    mappings channel: 'official', version: minecraft_version
+
+    runs {
+        configureEach {
+            workingDir = sharedRunDirectory
+        }
+        client {
+        }
+    }
+}
+
+repositories {
+    minecraft.mavenizer(it)
+    maven {
+        name = 'NeoForged'
+        url = 'https://maven.neoforged.net/releases'
+    }
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
+    maven {
+        name = 'MinecraftLibraries'
+        url = 'https://libraries.minecraft.net/'
+    }
+    mavenCentral()
+}
+
+dependencies {
+    implementation minecraft.dependency("net.minecraftforge:forge:${minecraft_version}-${forge_version}")
+    compileOnly "net.neoforged:neoforge:${neo_version}:userdev"
+}
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'loader_version_range', forge_loader_version_range
+    filesMatching('META-INF/mods.toml') {
+        expand version: project.version, loader_version_range: forge_loader_version_range
+    }
+}
+
+apply from: rootProject.file('gradle/deploy-artifacts.gradle')

@@ -1,0 +1,148 @@
+plugins {
+    id 'io.freefair.lombok' version '8.6' apply false
+    id 'org.jetbrains.gradle.plugin.idea-ext' version '1.4.1'
+    id 'com.modrinth.minotaur' version '2.9.0' apply false
+    id 'com.matthewprenger.cursegradle' version '1.4.0' apply false
+    id 'idea'
+}
+
+import org.jetbrains.gradle.ext.Gradle
+
+def enabledPlatformProjects = []
+
+def enabledMcVersions = findProperty('enabled_mc_versions')?.toString()?.split(',')
+        ?.collect { it.trim() }
+        ?.findAll { !it.isEmpty() } ?: []
+
+allprojects {
+    group = rootProject.maven_group
+    version = rootProject.mod_version
+
+    repositories {
+        mavenCentral()
+    }
+}
+
+tasks.register('deploy') {
+    group = 'distribution'
+    description = 'Copy all enabled platform mod JARs to deploy/'
+}
+
+tasks.register('buildAll') {
+    group = 'build'
+    description = 'Build and deploy all enabled platform mod JARs'
+    dependsOn tasks.named('deploy')
+}
+
+tasks.register('publishAll') {
+    group = 'distribution'
+    description = 'Build and publish all enabled platform modules to Modrinth and CurseForge'
+}
+
+tasks.register('cleanDeploy', Delete) {
+    group = 'build'
+    description = 'Deletes all files in the deploy/ directory.'
+    delete layout.projectDirectory.dir('deploy')
+}
+
+tasks.register('clean') {
+    group = 'build'
+    description = 'Runs clean on all subprojects and clears deploy/.'
+    dependsOn tasks.named('cleanDeploy')
+}
+
+subprojects {
+    pluginManager.withPlugin('java-base') {
+        apply from: rootProject.file('gradle/onedrive-build-dir.gradle')
+    }
+
+    plugins.withId('net.neoforged.moddev') {
+        enabledPlatformProjects << project
+    }
+    plugins.withId('net.neoforged.moddev.legacyforge') {
+        enabledPlatformProjects << project
+    }
+    plugins.withId('fabric-loom') {
+        enabledPlatformProjects << project
+    }
+
+    afterEvaluate {
+        if (tasks.findByName('clean') != null) {
+            rootProject.tasks.named('clean').configure {
+                dependsOn tasks.named('clean')
+            }
+            tasks.named('clean').configure {
+                dependsOn rootProject.tasks.named('cleanDeploy')
+            }
+        }
+    }
+
+    pluginManager.withPlugin('java') {
+        if (project.path.endsWith(':forge')) {
+            return
+        }
+
+        apply plugin: 'io.freefair.lombok'
+    }
+}
+
+gradle.projectsEvaluated {
+    subprojects.each { platformProject ->
+        def publishTask = platformProject.tasks.findByName('publishModSites')
+        if (publishTask != null) {
+            tasks.named('publishAll').configure {
+                dependsOn publishTask
+            }
+        }
+    }
+
+    def syncTasks = enabledPlatformProjects.collectMany { platformProject ->
+        ['neoForgeIdeSync', 'ideaSyncTask'].collect { taskName ->
+            platformProject.tasks.findByName(taskName)
+        }.findAll { it != null }
+    }
+
+    if (!syncTasks.isEmpty()) {
+        tasks.register('generateIntellijRuns') {
+            group = 'IDE'
+            description = 'Prepare client run configs for IntelliJ (ModDevGradle + Fabric Loom modules).'
+            dependsOn syncTasks
+        }
+
+        idea {
+            project {
+                settings {
+                    taskTriggers {
+                        afterSync tasks.named('generateIntellijRuns')
+                    }
+                }
+            }
+        }
+    }
+
+    // ForgeGradle 7 stubs only — ModDevGradle already registers client runs via neoForge.runs { ideName }.
+    subprojects { platformProject ->
+        platformProject.plugins.withId('net.minecraftforge.gradle') {
+            if (platformProject.tasks.findByName('runClient') == null) {
+                return
+            }
+
+            platformProject.apply from: rootProject.file('gradle/mc-ide-runs.gradle')
+            def configName = platformProject.ext.ideClientRunName()
+            def runClientTask = platformProject.tasks.named('runClient')
+
+            idea {
+                project {
+                    settings {
+                        runConfigurations {
+                            create(configName, Gradle) {
+                                project = platformProject
+                                taskNames = [runClientTask.get().path]
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

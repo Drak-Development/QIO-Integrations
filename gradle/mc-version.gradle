@@ -1,0 +1,72 @@
+// Applied to :<version>:fabric, :<version>:neoforge, :<version>:forge
+
+ext.mcVersionDir = project.path.tokenize(':').first()
+
+def versionProps = new Properties()
+def propsFile = rootProject.file("${mcVersionDir}/gradle.properties")
+if (!propsFile.exists()) {
+    throw new GradleException("Missing ${propsFile}")
+}
+propsFile.withInputStream { versionProps.load(it) }
+
+ext.versionProps = versionProps
+ext.minecraft_version = versionProps.getProperty('minecraft_version')
+ext.neo_version = versionProps.getProperty('neo_version')
+ext.fabric_loader_version = versionProps.getProperty('fabric_loader_version')
+ext.fabric_api_version = versionProps.getProperty('fabric_api_version')
+ext.loom_version = versionProps.getProperty('loom_version')
+ext.moddev_version = versionProps.getProperty('moddev_version')
+ext.parchment_minecraft_version = versionProps.getProperty('parchment_minecraft_version', minecraft_version)
+ext.parchment_mappings_version = versionProps.getProperty('parchment_mappings_version', '')
+ext.loader_version_range = versionProps.getProperty('loader_version_range', '[0,)')
+ext.forge_loader_version_range = versionProps.getProperty('forge_loader_version_range', loader_version_range)
+ext.neoforge_javafml_version_range = versionProps.getProperty('neoforge_javafml_version_range', '[4,)')
+ext.neoforge_version_range = versionProps.getProperty('neoforge_version_range', loader_version_range)
+ext.forge_version = versionProps.getProperty('forge_version', '')
+ext.java_version = versionProps.getProperty('java_version', '21') as int
+ext.ae2_version = versionProps.getProperty('ae2_version', '')
+ext.guideme_version = versionProps.getProperty('guideme_version', '')
+ext.mekanism_version = versionProps.getProperty('mekanism_version', '')
+ext.rs_file_id = versionProps.getProperty('rs_file_id', '')
+ext.toms_file_id = versionProps.getProperty('toms_file_id', '')
+
+ext.sharedRunDirectory = rootProject.layout.projectDirectory.dir("run/${mcVersionDir}/${project.name}")
+
+ext.integrationModsCompile = false
+
+if (plugins.hasPlugin('java') || plugins.hasPlugin('java-library')) {
+    java {
+        withSourcesJar()
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(java_version)
+        }
+        sourceCompatibility = JavaVersion.toVersion(java_version)
+        targetCompatibility = JavaVersion.toVersion(java_version)
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        options.release = java_version
+    }
+
+    tasks.withType(JavaExec).configureEach { task ->
+        def isGameRun = task.name in ['runClient', 'runServer']
+                || task.name.endsWith('.main()')
+                || task.name.contains('devlaunch')
+        if (!isGameRun) {
+            return
+        }
+
+        javaLauncher = javaToolchains.launcherFor {
+            languageVersion = JavaLanguageVersion.of(java_version)
+        }
+        // IntelliJ "run main via Gradle" pins executable to the IDE/Gradle JVM (often 17).
+        doFirst {
+            executable = null
+        }
+    }
+}
+
+base {
+    archivesName = "${rootProject.archives_name}-${mcVersionDir}-${project.name}"
+}

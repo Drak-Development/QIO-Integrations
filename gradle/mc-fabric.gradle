@@ -1,0 +1,22 @@
+apply from: rootProject.file('gradle/mc-version.gradle')
+apply from: rootProject.file('gradle/mc-shared-sources.gradle')
+
+loom {
+    serverOnlyMinecraftJar()
+}
+
+dependencies {
+    minecraft "com.mojang:minecraft:${minecraft_version}"
+    mappings loom.officialMojangMappings()
+    modImplementation "net.fabricmc:fabric-loader:${fabric_loader_version}"
+}
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'minecraft_version', minecraft_version
+    filesMatching('fabric.mod.json') {
+        expand version: project.version, minecraft_version: minecraft_version
+    }
+}
+
+apply from: rootProject.file('gradle/deploy-artifacts.gradle')

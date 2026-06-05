@@ -1,0 +1,241 @@
+// Runtime (and optional compile) deps for AE2, Mekanism, Refined Storage, and Tom's Simple Storage.
+// Copies resolved JARs into run/<version>/<loader>/mods for IDE client runs.
+
+// Requires mc-version.gradle. Set ext.integrationModsCompile = true for modules that compile against these mods.
+
+repositories {
+    mavenCentral {
+        content {
+            includeGroup('org.appliedenergistics')
+        }
+    }
+    maven {
+        name = 'Modmaven'
+        url = uri('https://modmaven.dev/')
+        content {
+            includeGroup('appeng')
+            includeGroup('mekanism')
+            includeGroup('org.appliedenergistics')
+        }
+    }
+    maven {
+        url = 'https://www.cursemaven.com'
+        content {
+            includeGroup 'curse.maven'
+        }
+    }
+    maven {
+        name = 'Modrinth'
+        url = 'https://api.modrinth.com/maven'
+        content {
+            includeGroup 'maven.modrinth'
+        }
+    }
+}
+
+configurations {
+    integrationRunMods {
+        canBeConsumed = false
+        canBeResolved = true
+    }
+}
+
+def integrationModsCompile = project.ext.has('integrationModsCompile') && project.ext.integrationModsCompile
+def loader = project.name
+def isForgeGradle = plugins.hasPlugin('net.minecraftforge.gradle')
+def isFabric = plugins.hasPlugin('fabric-loom')
+def isModDev = !isForgeGradle && (plugins.hasPlugin('net.neoforged.moddev') || plugins.hasPlugin('net.neoforged.moddev.legacyforge'))
+def usesModConfigs = isFabric || isModDev
+// Loom also defines localRuntime; only MDG legacy Forge remaps via modLocalRuntime.
+def usesRemappedLocalRuntime = plugins.hasPlugin('net.neoforged.moddev.legacyforge')
+
+def configName = { String modConfig, String javaConfig ->
+    if (usesModConfigs && configurations.findByName(modConfig) != null) {
+        return modConfig
+    }
+    return javaConfig
+}
+
+def loaderProp = { String key ->
+    def loaderSpecific = versionProps.getProperty("${loader}_${key}", '')
+    if (!loaderSpecific.isEmpty()) {
+        return loaderSpecific
+    }
+    return versionProps.getProperty(key, '')
+}
+
+def compileOnlyConfig = configName('modCompileOnly', 'compileOnly')
+def implementationConfig = configName('modImplementation', 'implementation')
+
+def addRunMod = { Object notation ->
+    if (usesRemappedLocalRuntime) {
+        // modLocalRuntime is created by obfuscation.createRemappingConfiguration(localRuntime)
+        dependencies.add('modLocalRuntime', notation)
+    } else {
+        dependencies.add('integrationRunMods', notation)
+    }
+}
+
+def addOptionalModrinth = { String projectSlug, String propKey ->
+    def version = loaderProp(propKey)
+    if (version) {
+        addRunMod("maven.modrinth:${projectSlug}:${version}")
+    }
+}
+
+def configureIntegrationModDependencies = {
+    def ae2FileId = loaderProp('ae2_file_id')
+    def ae2Version = loaderProp('ae2_version')
+    if (ae2FileId) {
+        addRunMod("curse.maven:applied-energistics-2-223794:${ae2FileId}")
+    } else if (ae2Version) {
+        if (minecraft_version.startsWith('1.20')) {
+            def notation = "appeng:appliedenergistics2-forge:${ae2Version}"
+            if (integrationModsCompile) {
+                dependencies.add(implementationConfig, notation)
+            }
+            addRunMod(notation)
+        } else {
+            if (integrationModsCompile) {
+                dependencies.add(compileOnlyConfig, "org.appliedenergistics:appliedenergistics2:${ae2Version}:api")
+            }
+            addRunMod("org.appliedenergistics:appliedenergistics2:${ae2Version}")
+        }
+
+        def guidemeVersion = loaderProp('guideme_version')
+        if (guidemeVersion) {
+            addRunMod("org.appliedenergistics:guideme:${guidemeVersion}")
+        }
+    }
+
+    def guidemeFileId = loaderProp('guideme_file_id')
+    if (guidemeFileId) {
+        addRunMod("curse.maven:guideme-609898:${guidemeFileId}")
+    }
+
+    def mekanismVersion = loaderProp('mekanism_version')
+    if (mekanismVersion) {
+        def mekBase = "mekanism:Mekanism:${minecraft_version}-${mekanismVersion}"
+        if (integrationModsCompile) {
+            dependencies.add(compileOnlyConfig, "${mekBase}:api")
+            // Mixin AP needs implementation classes (e.g. CapabilityTileEntity), not just the API jar.
+            dependencies.add(compileOnlyConfig, "${mekBase}:all")
+        }
+        addRunMod("${mekBase}:all")
+    }
+
+    def mekFileId = loaderProp('mekanism_file_id')
+    if (mekFileId) {
+        addRunMod("curse.maven:mekanism-268560:${mekFileId}")
+    }
+
+    def rsFileId = loaderProp('rs_file_id')
+    if (rsFileId) {
+        def rsNotation = "curse.maven:refined-storage-243076:${rsFileId}"
+        addRunMod(rsNotation)
+        if (integrationModsCompile) {
+            dependencies.add(compileOnlyConfig, rsNotation)
+        }
+    }
+
+    def tomsFileId = loaderProp('toms_file_id')
+    if (tomsFileId) {
+        def tomsSlug = loader == 'fabric' ? 'toms-storage-fabric-396826' : 'toms-storage-378609'
+        def tomsNotation = "curse.maven:${tomsSlug}:${tomsFileId}"
+        addRunMod(tomsNotation)
+        if (integrationModsCompile) {
+            dependencies.add(compileOnlyConfig, tomsNotation)
+        }
+    }
+
+    def tomsModrinthVersion = loaderProp('toms_modrinth_version')
+    if (tomsModrinthVersion) {
+        addRunMod("maven.modrinth:toms-storage:${tomsModrinthVersion}")
+    }
+
+    addOptionalModrinth('sodium', 'sodium_version')
+    addOptionalModrinth('sodium-extra', 'sodium_extra_version')
+    addOptionalModrinth('reeses-sodium-options', 'reeses_sodium_options_version')
+    addOptionalModrinth('mouse-tweaks', 'mousetweaks_version')
+}
+
+afterEvaluate {
+    dependencies configureIntegrationModDependencies
+}
+
+// Legacy Forge userdev remaps mods from localRuntime; raw jars in run/.../mods break at runtime.
+def clearRunModsFolder = tasks.register('clearRunModsFolder') {
+    group = 'IDE'
+    description = 'Removes stale mod JARs from the client run mods folder before prepareClientRun.'
+    doLast {
+        def modsDir = sharedRunDirectory.dir('mods').asFile
+        if (modsDir.isDirectory()) {
+            modsDir.listFiles()?.findAll { it.name.endsWith('.jar') }?.each { it.delete() }
+        }
+    }
+}
+
+if (!usesRemappedLocalRuntime) {
+    def syncIntegrationMods = tasks.register('syncIntegrationMods', Copy) {
+        group = 'IDE'
+        description = 'Copies integration and optional client mod JARs into the client run mods folder.'
+        dependsOn configurations.integrationRunMods
+        from configurations.integrationRunMods
+        into sharedRunDirectory.dir('mods')
+        duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+        doFirst {
+            def modsDir = sharedRunDirectory.dir('mods').asFile
+            if (modsDir.isDirectory()) {
+                modsDir.listFiles()?.findAll { it.name.endsWith('.jar') }?.each { it.delete() }
+            }
+        }
+    }
+
+    tasks.matching { it.name == 'runClient' }.configureEach {
+        dependsOn syncIntegrationMods
+    }
+
+    tasks.matching { it.name == 'prepareClientRun' }.configureEach {
+        dependsOn syncIntegrationMods
+    }
+} else {
+    tasks.matching { it.name == 'prepareClientRun' }.configureEach {
+        dependsOn clearRunModsFolder
+    }
+}
+
+// Sodium casts GpuTexture to GlTexture; NeoForge dev wraps textures for validation (CaffeineMC/sodium#3253).
+def patchNeoForgeClientConfigForSodium = null
+if (plugins.hasPlugin('net.neoforged.moddev') && !loaderProp('sodium_version').isEmpty()) {
+    patchNeoForgeClientConfigForSodium = tasks.register('patchNeoForgeClientConfigForSodium') {
+        group = 'IDE'
+        description = 'Sets enableB3DValidationLayer=false when Sodium is on the dev classpath.'
+        doLast {
+            def configDir = sharedRunDirectory.dir('config').asFile
+            configDir.mkdirs()
+            def toml = new File(configDir, 'neoforge-client.toml')
+            def line = 'enableB3DValidationLayer = false'
+            if (toml.isFile()) {
+                def text = toml.getText('UTF-8')
+                toml.text = text.contains('enableB3DValidationLayer')
+                        ? text.replaceAll(/(?m)^enableB3DValidationLayer\s*=\s*.*/, line)
+                        : "${text.trim()}\n${line}\n"
+            } else {
+                toml.text = "${line}\n"
+            }
+        }
+    }
+
+    tasks.matching { it.name == 'runClient' }.configureEach {
+        dependsOn patchNeoForgeClientConfigForSodium
+    }
+    tasks.matching { it.name == 'prepareClientRun' }.configureEach {
+        dependsOn patchNeoForgeClientConfigForSodium
+    }
+
+    afterEvaluate {
+        if (extensions.findByName('neoForge') != null && patchNeoForgeClientConfigForSodium != null) {
+            neoForge.ideSyncTask patchNeoForgeClientConfigForSodium
+        }
+    }
+}

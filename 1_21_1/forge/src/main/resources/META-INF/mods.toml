@@ -1,0 +1,17 @@
+modLoader = "javafml"
+loaderVersion = "${loader_version_range}"
+license = "All Rights Reserved"
+
+[[mods]]
+modId = "qiointegrations"
+version = "${version}"
+displayName = "QIO Integrations"
+description = "Connect Mekanism QIO to AE2, Refined Storage, and Tom's Simple Storage (stub — use NeoForge 1.21.1 for integrations)"
+authors = "nitra"
+
+[[dependencies.qiointegrations]]
+modId = "forge"
+mandatory = true
+versionRange = "${loader_version_range}"
+ordering = "NONE"
+side = "BOTH"

@@ -1,0 +1,89 @@
+// Modrinth + CurseForge publishing. Changelog is read from <version>/<loader>/UPDATES.md.
+// Requires mc-version.gradle. Tokens: MODRINTH_TOKEN / CURSEFORGE_TOKEN env vars (or *_token properties).
+
+pluginManager.apply('com.modrinth.minotaur')
+pluginManager.apply('com.matthewprenger.cursegradle')
+
+def artifactTaskProvider = tasks.findByName('remapJar') != null
+        ? tasks.named('remapJar')
+        : (tasks.findByName('reobfJar') != null
+        ? tasks.named('reobfJar')
+        : tasks.named('jar'))
+
+def updatesFile = layout.projectDirectory.file('UPDATES.md')
+
+def modLoader = project.name
+def modLoaderTag
+if (modLoader == 'fabric') {
+    modLoaderTag = 'Fabric'
+} else if (modLoader == 'neoforge') {
+    modLoaderTag = 'NeoForge'
+} else {
+    modLoaderTag = 'Forge'
+}
+
+def modrinthProjectId = findProperty('modrinth_project_id')?.toString()?.trim()
+def curseforgeProjectId = findProperty('curseforge_project_id')?.toString()?.trim()
+def releaseType = findProperty('release_type')?.toString()?.trim() ?: 'release'
+
+def modrinthToken = System.getenv('MODRINTH_TOKEN') ?: findProperty('modrinth_token')?.toString()?.trim()
+def curseforgeToken = System.getenv('CURSEFORGE_TOKEN') ?: findProperty('curseforge_token')?.toString()?.trim()
+
+def canPublishModrinth = { modrinthProjectId && modrinthToken }
+def canPublishCurseForge = { curseforgeProjectId && curseforgeToken }
+
+modrinth {
+    token = modrinthToken ?: ''
+    projectId = modrinthProjectId ?: 'unset'
+    versionNumber = "${project.version}"
+    versionType = releaseType
+    uploadFile = artifactTaskProvider
+    gameVersions = [minecraft_version]
+    loaders = [modLoader]
+    changelog = providers.fileContents(updatesFile).asText
+}
+
+tasks.named('modrinth').configure {
+    group = 'distribution'
+    description = 'Upload mod JAR to Modrinth (changelog from UPDATES.md)'
+    dependsOn artifactTaskProvider
+    onlyIf { canPublishModrinth() }
+}
+
+if (curseforgeProjectId) {
+    curseforge {
+        apiKey = curseforgeToken ?: ''
+        project {
+            id = curseforgeProjectId
+            changelog = updatesFile
+            changelogType = 'markdown'
+            releaseType = releaseType
+            mainArtifact(artifactTaskProvider) {
+                addGameVersion modLoaderTag
+                addGameVersion minecraft_version
+            }
+        }
+    }
+
+    tasks.named('curseforge').configure {
+        group = 'distribution'
+        description = 'Upload mod JAR to CurseForge (changelog from UPDATES.md)'
+        dependsOn artifactTaskProvider
+        onlyIf { canPublishCurseForge() }
+    }
+}
+
+tasks.register('publishCurseForge') {
+    group = 'distribution'
+    description = 'Upload mod JAR to CurseForge (changelog from UPDATES.md)'
+    onlyIf { canPublishCurseForge() && tasks.findByName('curseforge') != null }
+    if (tasks.findByName('curseforge') != null) {
+        dependsOn tasks.named('curseforge')
+    }
+}
+
+tasks.register('publishModSites') {
+    group = 'distribution'
+    description = 'Upload mod JAR to Modrinth and CurseForge'
+    dependsOn tasks.named('build'), tasks.named('modrinth'), tasks.named('publishCurseForge')
+}

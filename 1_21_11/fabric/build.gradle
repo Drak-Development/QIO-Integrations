@@ -1,0 +1,7 @@
+plugins {
+    id 'java-library'
+    id 'fabric-loom' version '1.13.6'
+}
+
+apply from: rootProject.file('gradle/mc-stub-shared.gradle')
+apply from: rootProject.file('gradle/mc-stub-fabric.gradle')

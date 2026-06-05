@@ -1,0 +1,4 @@
+def integrationCommonDir = rootProject.file("${mcVersionDir}/integration-common")
+
+sourceSets.main.java.srcDir(integrationCommonDir.toPath().resolve('src/main/java').toFile())
+sourceSets.main.resources.srcDir(integrationCommonDir.toPath().resolve('src/main/resources').toFile())

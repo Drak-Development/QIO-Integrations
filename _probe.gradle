@@ -1,0 +1,3 @@
+tasks.named("runClient").configure { t ->
+    println "runClient jvmArgs: " + t.jvmArgs
+}

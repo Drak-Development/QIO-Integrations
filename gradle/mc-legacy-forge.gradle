@@ -1,0 +1,139 @@
+apply from: rootProject.file('gradle/mc-shared-sources.gradle')
+
+apply from: rootProject.file('gradle/mc-ide-runs.gradle')
+
+
+
+configurations {
+
+    runtimeClasspath.extendsFrom localRuntime
+
+}
+
+
+
+obfuscation {
+
+    createRemappingConfiguration(configurations.localRuntime)
+
+}
+
+
+
+ext.integrationModsCompile = true
+
+apply from: rootProject.file('gradle/mc-integration-mods.gradle')
+
+
+
+dependencies {
+
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    compileOnly 'org.jetbrains:annotations:26.0.2-1'
+
+}
+
+
+
+legacyForge {
+
+    version = "${minecraft_version}-${forge_version}"
+
+
+
+    runs {
+
+        client {
+
+            client()
+
+            ideName = ideClientRunName()
+
+            taskBefore tasks.named('prepareClientRun')
+
+        }
+
+        server {
+
+            server()
+
+            disableIdeRun()
+
+            taskBefore tasks.named('prepareServerRun')
+
+        }
+
+
+
+        configureEach {
+
+            gameDirectory = sharedRunDirectory
+
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+
+            systemProperty 'fml.earlyprogresswindow', 'false'
+
+            logLevel = org.slf4j.event.Level.INFO
+
+        }
+
+    }
+
+
+
+    mods {
+
+        qiointegrations {
+
+            sourceSet(sourceSets.main)
+
+        }
+
+    }
+
+}
+
+
+
+mixin {
+
+    add sourceSets.main, 'qiointegrations.refmap.json'
+
+    config 'qiointegrations.mixins.json'
+
+}
+
+
+
+tasks.named('jar', Jar).configure {
+
+    manifest.attributes(['MixinConfigs': 'qiointegrations.mixins.json'])
+
+}
+
+
+
+processResources {
+
+    inputs.property 'version', project.version
+
+    filesMatching('META-INF/mods.toml') {
+
+        expand version: project.version
+
+    }
+
+}
+
+
+
+legacyForge.ideSyncTask tasks.named('processResources')
+
+legacyForge.ideSyncTask prepareClientRun
+legacyForge.ideSyncTask tasks.named('writeClientLegacyClasspath')
+
+
+
+apply from: rootProject.file('gradle/deploy-artifacts.gradle')
+

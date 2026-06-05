@@ -1,0 +1,54 @@
+apply from: rootProject.file('gradle/mc-ide-runs.gradle')
+apply from: rootProject.file('gradle/mc-integration-mods.gradle')
+
+neoForge {
+    version = neo_version
+
+    if (parchment_mappings_version) {
+        parchment {
+            mappingsVersion = parchment_mappings_version
+            minecraftVersion = parchment_minecraft_version
+        }
+    }
+
+    runs {
+        client {
+            client()
+            ideName = ideClientRunName()
+        }
+        server {
+            server()
+            disableIdeRun()
+        }
+
+        configureEach {
+            gameDirectory = sharedRunDirectory
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+
+    mods {
+        qiointegrations {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'neoforge_javafml_version_range', neoforge_javafml_version_range
+    inputs.property 'neoforge_version_range', neoforge_version_range
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand(
+                version: project.version,
+                neoforge_javafml_version_range: neoforge_javafml_version_range,
+                neoforge_version_range: neoforge_version_range
+        )
+    }
+}
+
+neoForge.ideSyncTask tasks.named('processResources')
+neoForge.ideSyncTask prepareClientRun
+
+apply from: rootProject.file('gradle/deploy-artifacts.gradle')

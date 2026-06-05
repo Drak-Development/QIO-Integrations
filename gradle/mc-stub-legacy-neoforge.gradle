@@ -1,0 +1,59 @@
+apply from: rootProject.file('gradle/mc-ide-runs.gradle')
+
+configurations {
+    runtimeClasspath.extendsFrom localRuntime
+}
+
+obfuscation {
+    createRemappingConfiguration(configurations.localRuntime)
+}
+
+apply from: rootProject.file('gradle/mc-integration-mods.gradle')
+
+legacyForge {
+    enable {
+        neoForgeVersion = neo_version
+    }
+
+    runs {
+        client {
+            client()
+            ideName = ideClientRunName()
+            taskBefore tasks.named('prepareClientRun')
+        }
+        server {
+            server()
+            disableIdeRun()
+        }
+
+        configureEach {
+            gameDirectory = sharedRunDirectory
+            systemProperty 'forge.logging.markers', 'REGISTRIES'
+            logLevel = org.slf4j.event.Level.INFO
+        }
+    }
+
+    mods {
+        qiointegrations {
+            sourceSet(sourceSets.main)
+        }
+    }
+}
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'neoforge_javafml_version_range', neoforge_javafml_version_range
+    inputs.property 'neoforge_version_range', neoforge_version_range
+    filesMatching('META-INF/neoforge.mods.toml') {
+        expand(
+                version: project.version,
+                neoforge_javafml_version_range: neoforge_javafml_version_range,
+                neoforge_version_range: neoforge_version_range
+        )
+    }
+}
+
+legacyForge.ideSyncTask tasks.named('processResources')
+legacyForge.ideSyncTask prepareClientRun
+
+apply from: rootProject.file('gradle/deploy-artifacts.gradle')

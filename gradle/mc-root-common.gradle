@@ -1,0 +1,1 @@
+sourceSets.main.java.srcDir(rootProject.file('common/src/main/java'))

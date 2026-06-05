@@ -1,0 +1,28 @@
+All Rights Reserved
+
+Copyright (c) nitra
+
+You may not copy, modify, merge, publish, distribute, sublicense, or sell
+copies of this software or any part of it, except as required to comply with
+the LGPL-3.0 terms for the files listed under "LGPL components" below.
+
+No permission is granted to use this software for any purpose other than as
+expressly permitted by applicable law or a separate written agreement.
+
+LGPL components
+---------------
+
+The following files contain code adapted from Applied Mekanistics
+(https://github.com/AppliedEnergistics/Applied-Mekanistics) and remain
+licensed under the GNU Lesser General Public License v3.0:
+
+- 1_20_1/common/src/main/java/gg/drak/qiointegrations/ae2/QioStorageAdapter.java
+- 1_20_1/forge/src/main/java/gg/drak/qiointegrations/ae2/QioAe2Support.java
+- 1_21_1/integration-common/src/main/java/gg/drak/qiointegrations/ae2/QioStorageAdapter.java
+- 1_21_1/neoforge/src/main/java/gg/drak/qiointegrations/ae2/QioAe2Support.java
+
+When you receive a copy of this mod, you may obtain the corresponding source
+for those LGPL files, and modify them under the terms of LGPL-3.0. A copy of
+the LGPL-3.0 license is available at: https://www.gnu.org/licenses/lgpl-3.0.html
+
+All other source in this repository is All Rights Reserved unless otherwise noted.

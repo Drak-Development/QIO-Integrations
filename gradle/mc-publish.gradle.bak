@@ -1,0 +1,181 @@
+// Modrinth + CurseForge publishing. Changelog is read from <version>/<loader>/UPDATES.md.
+
+// Requires mc-version.gradle. Tokens: MODRINTH_TOKEN / CURSEFORGE_TOKEN env vars (or * _token properties).
+
+
+
+// Modrinth + CurseForge publishing. Changelog is read from <version>/<loader>/UPDATES.md.
+// Requires mc-version.gradle. Tokens: MODRINTH_TOKEN / CURSEFORGE_TOKEN env vars (or * _token properties).
+
+buildscript {
+    repositories {
+        gradlePluginPortal()
+    }
+    dependencies {
+        classpath 'com.modrinth.minotaur:com.modrinth.minotaur.gradle.plugin:2.9.0'
+        classpath 'net.darkhax.curseforgegradle:net.darkhax.curseforgegradle.gradle.plugin:1.3.0'
+    }
+}
+
+apply plugin: 'com.modrinth.minotaur'
+apply plugin: 'net.darkhax.curseforgegradle'
+
+def artifactTaskProvider = tasks.findByName('remapJar') != null
+
+        ? tasks.named('remapJar')
+
+        : (tasks.findByName('reobfJar') != null
+
+        ? tasks.named('reobfJar')
+
+        : tasks.named('jar'))
+
+
+
+def updatesFile = layout.projectDirectory.file('UPDATES.md')
+
+
+
+def readChangelog = {
+
+    def file = updatesFile.asFile.get()
+
+    if (!file.exists()) {
+
+        throw new GradleException(
+
+                "Missing ${file}. Add an UPDATES.md in ${project.path} before publishing."
+
+        )
+
+    }
+
+    return file.text
+
+}
+
+
+
+def modLoader = project.name
+
+def modrinthProjectId = findProperty('modrinth_project_id')?.toString()?.trim()
+
+def curseforgeProjectId = findProperty('curseforge_project_id')?.toString()?.trim()
+
+def releaseType = findProperty('release_type')?.toString()?.trim() ?: 'release'
+
+
+
+def modrinthToken = System.getenv('MODRINTH_TOKEN') ?: findProperty('modrinth_token')?.toString()?.trim()
+
+def curseforgeToken = System.getenv('CURSEFORGE_TOKEN') ?: findProperty('curseforge_token')?.toString()?.trim()
+
+
+
+def canPublishModrinth = { modrinthProjectId && modrinthToken }
+
+def canPublishCurseForge = { curseforgeProjectId && curseforgeToken }
+
+
+
+modrinth {
+
+    token = modrinthToken ?: ''
+
+    projectId = modrinthProjectId ?: ''
+
+    versionNumber = "${project.version}"
+
+    versionType = releaseType
+
+    uploadFile = artifactTaskProvider
+
+    gameVersions = [minecraft_version]
+
+    loaders = [modLoader]
+
+    changelog = providers.fileContents(updatesFile).asText
+
+}
+
+
+
+tasks.named('modrinth').configure {
+
+    group = 'distribution'
+
+    description = 'Upload mod JAR to Modrinth (changelog from UPDATES.md)'
+
+    dependsOn artifactTaskProvider
+
+    onlyIf { canPublishModrinth() }
+
+}
+
+
+
+tasks.register('publishCurseForge', net.darkhax.curseforgegradle.TaskPublishCurseForge) {
+
+    group = 'distribution'
+
+    description = 'Upload mod JAR to CurseForge (changelog from UPDATES.md)'
+
+    dependsOn artifactTaskProvider
+
+    onlyIf { canPublishCurseForge() }
+
+
+
+    apiToken = curseforgeToken
+
+
+
+    def mainFile = upload(curseforgeProjectId, artifactTaskProvider)
+
+    mainFile.changelog = updatesFile
+
+    mainFile.changelogType = 'markdown'
+
+    mainFile.releaseType = releaseType
+
+    mainFile.addGameVersion(minecraft_version)
+
+
+
+    switch (modLoader) {
+
+        case 'fabric':
+
+            mainFile.addModLoader('Fabric')
+
+            break
+
+        case 'neoforge':
+
+            mainFile.addModLoader('NeoForge')
+
+            break
+
+        default:
+
+            mainFile.addModLoader('Forge')
+
+            break
+
+    }
+
+}
+
+
+
+tasks.register('publishModSites') {
+
+    group = 'distribution'
+
+    description = 'Upload mod JAR to Modrinth and CurseForge'
+
+    dependsOn tasks.named('build'), tasks.named('modrinth'), tasks.named('publishCurseForge')
+
+}
+
+

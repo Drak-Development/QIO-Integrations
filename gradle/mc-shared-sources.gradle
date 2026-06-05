@@ -1,0 +1,5 @@
+def versionCommonDir = rootProject.file("${mcVersionDir}/common")
+
+sourceSets.main.java.srcDir(versionCommonDir.toPath().resolve('src/main/java').toFile())
+sourceSets.main.java.srcDir(rootProject.file('common/src/main/java'))
+sourceSets.main.resources.srcDir(versionCommonDir.toPath().resolve('src/main/resources').toFile())

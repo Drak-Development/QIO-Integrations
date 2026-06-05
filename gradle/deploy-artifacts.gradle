@@ -1,0 +1,25 @@
+// Copies the platform mod JAR into the root deploy/ folder after it is built.
+
+def artifactTaskProvider = tasks.findByName('remapJar') != null
+        ? tasks.named('remapJar')
+        : (tasks.findByName('reobfJar') != null
+        ? tasks.named('reobfJar')
+        : tasks.named('jar'))
+
+tasks.register('copyToDeploy', Copy) {
+    group = 'distribution'
+    description = "Copy ${project.path} mod JAR to ${rootProject.name}/deploy/"
+    dependsOn artifactTaskProvider
+    from(artifactTaskProvider.flatMap { it.archiveFile })
+    into rootProject.layout.projectDirectory.dir('deploy')
+}
+
+tasks.named('build').configure {
+    finalizedBy tasks.named('copyToDeploy')
+}
+
+rootProject.tasks.named('deploy').configure {
+    dependsOn tasks.named('copyToDeploy')
+}
+
+apply from: rootProject.file('gradle/mc-publish.gradle')

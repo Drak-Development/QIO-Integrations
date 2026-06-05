@@ -1,0 +1,12 @@
+.gradle/
+build/
+deploy/
+run/
+out/
+.idea/
+*.iml
+bin/
+/.vscode/
+/.idea/
+/.cursor/
+/OTHER-MODS.md

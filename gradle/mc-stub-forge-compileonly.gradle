@@ -1,0 +1,25 @@
+apply from: rootProject.file('gradle/mc-ide-runs.gradle')
+
+def forgeArtifact = "${minecraft_version}-${forge_version}"
+
+repositories {
+    maven {
+        name = 'MinecraftForge'
+        url = 'https://maven.minecraftforge.net/'
+    }
+    mavenCentral()
+}
+
+dependencies {
+    compileOnly "net.minecraftforge:forge:${forgeArtifact}"
+}
+
+processResources {
+    inputs.property 'version', project.version
+    inputs.property 'loader_version_range', forge_loader_version_range
+    filesMatching('META-INF/mods.toml') {
+        expand version: project.version, loader_version_range: forge_loader_version_range
+    }
+}
+
+apply from: rootProject.file('gradle/deploy-artifacts.gradle')

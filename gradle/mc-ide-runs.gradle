@@ -1,0 +1,19 @@
+ext.loomRunDir = {
+    project.projectDir.toPath()
+            .relativize(rootProject.file("run/${mcVersionDir}/${project.name}").toPath())
+            .toString()
+            .replace('\\', '/')
+}
+
+ext.ideClientRunName = {
+    def loaderName = project.name + ' - client'
+    def enabledVersions = rootProject.findProperty('enabled_mc_versions')?.toString()?.split(',')
+            ?.collect { it.trim() }
+            ?.findAll { !it.isEmpty() } ?: []
+
+    if (enabledVersions.size() <= 1 || project.parent == null) {
+        return loaderName
+    }
+
+    return project.parent.name.replace('_', '.') + ' ' + loaderName
+}
