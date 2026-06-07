@@ -153,6 +153,8 @@ def configureIntegrationModDependencies = {
         addRunMod("maven.modrinth:toms-storage:${tomsModrinthVersion}")
     }
 
+    addOptionalModrinth('applied-mekanistics', 'appmek_version')
+
     addOptionalModrinth('sodium', 'sodium_version')
     addOptionalModrinth('sodium-extra', 'sodium_extra_version')
     addOptionalModrinth('reeses-sodium-options', 'reeses_sodium_options_version')
