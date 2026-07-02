@@ -9,6 +9,7 @@ import javax.annotation.Nullable;
 
 import net.minecraft.world.item.ItemStack;
 
+import gg.drak.qiointegrations.qio.QioFrequencySnapshot;
 import mekanism.api.Action;
 import mekanism.api.inventory.qio.IQIOFrequency;
 
@@ -93,13 +94,7 @@ public class QioExternalStorage implements IExternalStorage<ItemStack> {
     }
 
     private List<ItemStack> buildSnapshot() {
-        List<ItemStack> stacks = new ArrayList<>();
-        frequency.forAllHashedStored((type, count) -> {
-            var stack = type.getInternalStack().copy();
-            stack.setCount(Math.toIntExact(Math.min(count, Integer.MAX_VALUE)));
-            stacks.add(stack);
-        });
-        return stacks;
+        return QioFrequencySnapshot.getStoredTypes(frequency);
     }
 
     @Nullable
@@ -132,6 +127,9 @@ public class QioExternalStorage implements IExternalStorage<ItemStack> {
         var toInsert = stack.copy();
         toInsert.setCount(size);
         long inserted = frequency.massInsert(toInsert, size, toMekAction(action));
+        if (action == com.refinedmods.refinedstorage.api.util.Action.PERFORM && inserted > 0) {
+            QioFrequencySnapshot.markDirty(frequency);
+        }
 
         if (inserted >= size) {
             return ItemStack.EMPTY;
@@ -151,6 +149,9 @@ public class QioExternalStorage implements IExternalStorage<ItemStack> {
         }
 
         long extracted = frequency.massExtract(stack, size, toMekAction(action));
+        if (action == com.refinedmods.refinedstorage.api.util.Action.PERFORM && extracted > 0) {
+            QioFrequencySnapshot.markDirty(frequency);
+        }
 
         if (extracted <= 0) {
             return ItemStack.EMPTY;

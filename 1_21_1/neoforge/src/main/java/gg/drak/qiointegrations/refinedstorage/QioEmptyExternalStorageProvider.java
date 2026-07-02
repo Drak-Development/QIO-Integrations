@@ -9,8 +9,8 @@ import com.refinedmods.refinedstorage.api.storage.Actor;
 import com.refinedmods.refinedstorage.api.storage.external.ExternalStorageProvider;
 
 /**
- * No-op provider used when a QIO dashboard is connected on the wrong face so RS never receives a null factory result
- * (CompositeExternalStorageProvider does not tolerate null providers).
+ * No-op provider returned whenever this factory does not handle the connected block. RS collects every factory
+ * result into {@code CompositeExternalStorageProvider} without filtering nulls.
  */
 enum QioEmptyExternalStorageProvider implements ExternalStorageProvider {
     INSTANCE;

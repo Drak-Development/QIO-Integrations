@@ -1,12 +1,12 @@
 package gg.drak.qiointegrations.toms;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import javax.annotation.Nonnull;
 
 import net.minecraft.world.item.ItemStack;
 
+import gg.drak.qiointegrations.qio.QioFrequencySnapshot;
 import mekanism.api.Action;
 import mekanism.api.inventory.qio.IQIOFrequency;
 
@@ -20,7 +20,8 @@ import net.minecraftforge.items.ItemHandlerHelper;
  * slots with a matching stack. Slot 0 is always empty so inserts succeed immediately without
  * waiting for Tom's {@code MultiItemHandler} to refresh its cached slot count.
  * <p>
- * Item lists are read live from the QIO frequency so RS/AE2/dashboard changes stay visible to Tom's.
+ * Item lists are read from a shared per-frequency snapshot so Tom's connector scans do not walk the
+ * entire QIO inventory once per slot.
  */
 public class QioItemHandler implements IItemHandler {
     private static final int INSERT_SLOT = 0;
@@ -31,14 +32,12 @@ public class QioItemHandler implements IItemHandler {
         this.frequency = frequency;
     }
 
+    IQIOFrequency getFrequency() {
+        return frequency;
+    }
+
     private List<ItemStack> readStoredTypes() {
-        List<ItemStack> stored = new ArrayList<>();
-        frequency.forAllHashedStored((type, count) -> {
-            var stack = type.getInternalStack().copy();
-            stack.setCount(Math.toIntExact(Math.min(count, Integer.MAX_VALUE)));
-            stored.add(stack);
-        });
-        return stored;
+        return QioFrequencySnapshot.getStoredTypes(frequency);
     }
 
     /**
@@ -71,6 +70,9 @@ public class QioItemHandler implements IItemHandler {
         }
 
         long inserted = frequency.massInsert(stack, stack.getCount(), simulate ? Action.SIMULATE : Action.EXECUTE);
+        if (!simulate && inserted > 0) {
+            QioFrequencySnapshot.markDirty(frequency);
+        }
         return ItemHandlerHelper.copyStackWithSize(stack, stack.getCount() - (int) inserted);
     }
 
@@ -88,6 +90,9 @@ public class QioItemHandler implements IItemHandler {
 
         var prototype = stored.get(slot - 1);
         long extracted = frequency.massExtract(prototype, amount, simulate ? Action.SIMULATE : Action.EXECUTE);
+        if (!simulate && extracted > 0) {
+            QioFrequencySnapshot.markDirty(frequency);
+        }
         if (extracted <= 0) {
             return ItemStack.EMPTY;
         }

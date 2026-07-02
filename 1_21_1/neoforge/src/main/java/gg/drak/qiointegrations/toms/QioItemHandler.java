@@ -1,12 +1,12 @@
 package gg.drak.qiointegrations.toms;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.WeakHashMap;
 
 import net.minecraft.world.item.ItemStack;
 
+import gg.drak.qiointegrations.qio.QioFrequencySnapshot;
 import mekanism.api.Action;
 import mekanism.api.inventory.qio.IQIOFrequency;
 
@@ -23,7 +23,8 @@ import com.tom.storagemod.inventory.InventoryChangeTracker;
  * slots with a matching stack. Slot 0 is always empty so inserts succeed immediately without
  * waiting for Tom's {@code MultiItemHandler} to refresh its cached slot count.
  * <p>
- * Item lists are read live from the QIO frequency. A dedicated {@link InventoryChangeTracker} is exposed
+ * Item lists are read from a shared per-frequency snapshot so Tom's connector scans do not walk the
+ * entire QIO inventory once per slot. A dedicated {@link InventoryChangeTracker} is exposed
  * through {@link IInventoryAccess.IChangeTrackerAccess} so Tom's does not reuse a stale tracker instance
  * when the handler is recreated.
  */
@@ -45,7 +46,7 @@ public class QioItemHandler implements IItemHandler, IChangeTrackerAccess {
         this.changeTracker = new InventoryChangeTracker(this);
     }
 
-    IQIOFrequency getFrequency() {
+    public IQIOFrequency getFrequency() {
         return frequency;
     }
 
@@ -55,13 +56,7 @@ public class QioItemHandler implements IItemHandler, IChangeTrackerAccess {
     }
 
     private List<ItemStack> readStoredTypes() {
-        List<ItemStack> stored = new ArrayList<>();
-        frequency.forAllHashedStored((type, count) -> {
-            var stack = type.getInternalStack().copy();
-            stack.setCount(Math.toIntExact(Math.min(count, Integer.MAX_VALUE)));
-            stored.add(stack);
-        });
-        return stored;
+        return QioFrequencySnapshot.getStoredTypes(frequency);
     }
 
     /**
@@ -93,6 +88,9 @@ public class QioItemHandler implements IItemHandler, IChangeTrackerAccess {
 
         long inserted = frequency.massInsert(stack, stack.getCount(), simulate ? Action.SIMULATE : Action.EXECUTE);
         int remainder = stack.getCount() - (int) inserted;
+        if (!simulate && inserted > 0) {
+            QioFrequencySnapshot.markDirty(frequency);
+        }
         if (remainder <= 0) {
             return ItemStack.EMPTY;
         }
@@ -114,6 +112,9 @@ public class QioItemHandler implements IItemHandler, IChangeTrackerAccess {
 
         var prototype = stored.get(slot - 1);
         long extracted = frequency.massExtract(prototype, amount, simulate ? Action.SIMULATE : Action.EXECUTE);
+        if (!simulate && extracted > 0) {
+            QioFrequencySnapshot.markDirty(frequency);
+        }
         if (extracted <= 0) {
             return ItemStack.EMPTY;
         }

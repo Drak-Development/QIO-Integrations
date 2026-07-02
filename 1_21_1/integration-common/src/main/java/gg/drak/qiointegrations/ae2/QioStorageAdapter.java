@@ -17,6 +17,7 @@ import net.minecraft.world.level.block.entity.BlockEntity;
 
 import gg.drak.qiointegrations.QIOText;
 import gg.drak.qiointegrations.qio.QioFrequencyAccess;
+import gg.drak.qiointegrations.qio.QioFrequencySnapshot;
 import mekanism.api.Action;
 import mekanism.api.inventory.IHashedItem;
 import mekanism.api.inventory.qio.IQIOComponent;
@@ -55,7 +56,12 @@ public class QioStorageAdapter<DASHBOARD extends BlockEntity & IQIOComponent> im
             if (freq == null) {
                 return 0;
             }
-            return freq.massInsert(itemKey.toStack(), amount, Action.fromFluidAction(mode.getFluidAction()));
+            var mekAction = Action.fromFluidAction(mode.getFluidAction());
+            long inserted = freq.massInsert(itemKey.toStack(), amount, mekAction);
+            if (mekAction == Action.EXECUTE && inserted > 0) {
+                QioFrequencySnapshot.markDirty(freq);
+            }
+            return inserted;
         }
         return 0;
     }
@@ -67,7 +73,12 @@ public class QioStorageAdapter<DASHBOARD extends BlockEntity & IQIOComponent> im
             if (freq == null) {
                 return 0;
             }
-            return freq.massExtract(itemKey.toStack(), amount, Action.fromFluidAction(mode.getFluidAction()));
+            var mekAction = Action.fromFluidAction(mode.getFluidAction());
+            long extracted = freq.massExtract(itemKey.toStack(), amount, mekAction);
+            if (mekAction == Action.EXECUTE && extracted > 0) {
+                QioFrequencySnapshot.markDirty(freq);
+            }
+            return extracted;
         }
         return 0;
     }
@@ -79,7 +90,11 @@ public class QioStorageAdapter<DASHBOARD extends BlockEntity & IQIOComponent> im
             return;
         }
 
-        freq.forAllHashedStored((type, count) -> {
+        Long gameTime = dashboard.getLevel() == null ? null : dashboard.getLevel().getGameTime();
+        if (gameTime != null) {
+            QioFrequencySnapshot.beginTick(gameTime);
+        }
+        QioFrequencySnapshot.forAllStored(freq, gameTime, (type, count) -> {
             out.add(CACHE.computeIfAbsent(type, it -> AEItemKey.of(it.getInternalStack())), count);
         });
     }

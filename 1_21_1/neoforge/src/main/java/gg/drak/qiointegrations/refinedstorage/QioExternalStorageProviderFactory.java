@@ -16,18 +16,16 @@ public class QioExternalStorageProviderFactory implements ExternalStorageProvide
     @Override
     public ExternalStorageProvider create(ServerLevel level, BlockPos pos, Direction direction) {
         BlockEntity blockEntity = level.getBlockEntity(pos);
-        if (blockEntity == null || blockEntity instanceof NetworkNodeContainerProvider) {
-            return null;
-        }
-
-        if (!IntegrationMods.isQioDashboard(blockEntity)) {
-            return null;
+        if (blockEntity == null || blockEntity instanceof NetworkNodeContainerProvider
+                || !IntegrationMods.isQioDashboard(blockEntity)) {
+            // RS CompositeExternalStorageProvider does not filter null factory results.
+            return QioEmptyExternalStorageProvider.INSTANCE;
         }
 
         // RS passes incomingDirection (side of the target block the external storage connects from).
         var frequency = QioFrequencyAccess.resolve(blockEntity, direction, null);
         return frequency == null
                 ? QioEmptyExternalStorageProvider.INSTANCE
-                : new QioExternalStorageProvider(frequency);
+                : new QioExternalStorageProvider(frequency, level);
     }
 }
